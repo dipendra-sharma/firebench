@@ -176,7 +176,8 @@ void main() {
 
     Firebench.instance.beginScreen('Feed');
     await Future<void>.delayed(Duration.zero);
-    Firebench.instance.reportFullyDisplayed();
+    final display = Firebench.instance.currentDisplay();
+    display?.reportFullyDisplayed();
     Firebench.instance.finalizeActiveScreen();
     await Future<void>.delayed(Duration.zero);
 
@@ -313,25 +314,28 @@ void main() {
     expect(reporter.traces.single.stopped, isTrue);
   });
 
-  test('startTrace metrics set before start resolves are not dropped', () async {
-    final strict = StrictReporter();
-    await Firebench.init(
-      config: const FirebenchConfig(traceInDebug: true),
-      reporter: strict,
-      frameHandler: frames,
-      clock: clock,
-    );
+  test(
+    'startTrace metrics set before start resolves are not dropped',
+    () async {
+      final strict = StrictReporter();
+      await Firebench.init(
+        config: const FirebenchConfig(traceInDebug: true),
+        reporter: strict,
+        frameHandler: frames,
+        clock: clock,
+      );
 
-    final t = Firebench.instance.startTrace('checkout');
-    t.setMetric('items', 3);
-    t.putAttribute('coupon', 'SAVE10');
-    await t.stop();
+      final t = Firebench.instance.startTrace('checkout');
+      t.setMetric('items', 3);
+      t.putAttribute('coupon', 'SAVE10');
+      await t.stop();
 
-    final handle = strict.traces.single;
-    expect(handle.metrics['items'], 3);
-    expect(handle.attributes['coupon'], 'SAVE10');
-    expect(handle.stopped, isTrue);
-  });
+      final handle = strict.traces.single;
+      expect(handle.metrics['items'], 3);
+      expect(handle.attributes['coupon'], 'SAVE10');
+      expect(handle.stopped, isTrue);
+    },
+  );
 
   test('screen metrics flushed after start when finalized early', () async {
     final strict = StrictReporter();
@@ -401,6 +405,107 @@ void main() {
       'screen_NestedTab',
     ]);
     expect(reporter.traces.every((t) => t.stopped), isTrue);
+  });
+
+  test('late ttfd lands on its own screen, never the next one', () async {
+    await initWith(
+      const FirebenchConfig(
+        traceInDebug: true,
+        enableTtfd: true,
+        enableFrameTracking: false,
+      ),
+    );
+    clockValues = [
+      DateTime(2026, 6, 12, 10, 0, 0),
+      DateTime(2026, 6, 12, 10, 0, 2),
+    ];
+
+    Firebench.instance.beginScreen('A');
+    final display = Firebench.instance.currentDisplay();
+    await Future<void>.delayed(Duration.zero);
+    Firebench.instance.finalizeActiveScreen();
+    Firebench.instance.beginScreen('B');
+    await Future<void>.delayed(Duration.zero);
+    display?.reportFullyDisplayed();
+    Firebench.instance.finalizeActiveScreen();
+    await Future<void>.delayed(Duration.zero);
+
+    final a = reporter.traces[0];
+    final b = reporter.traces[1];
+    expect(a.metrics.containsKey('ttfd_ms'), isFalse);
+    expect(a.attributes['display_complete'], 'false');
+    expect(b.metrics.containsKey('ttfd_ms'), isFalse);
+    expect(b.attributes['display_complete'], 'false');
+  });
+
+  test('repeated reportFullyDisplayed records a single ttfd', () async {
+    await initWith(
+      const FirebenchConfig(
+        traceInDebug: true,
+        enableTtfd: true,
+        enableFrameTracking: false,
+      ),
+    );
+    clockValues = [
+      DateTime(2026, 6, 12, 10, 0, 0),
+      DateTime(2026, 6, 12, 10, 0, 0, 300),
+      DateTime(2026, 6, 12, 10, 0, 0, 900),
+    ];
+
+    Firebench.instance.beginScreen('Feed');
+    await Future<void>.delayed(Duration.zero);
+    final display = Firebench.instance.currentDisplay();
+    display?.reportFullyDisplayed();
+    display?.reportFullyDisplayed();
+    Firebench.instance.finalizeActiveScreen();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(reporter.traces.single.metrics['ttfd_ms'], 300);
+  });
+
+  test('repeated first-frame callback records a single ttid', () async {
+    await initWith(
+      const FirebenchConfig(traceInDebug: true, enableFrameTracking: false),
+    );
+    clockValues = [
+      DateTime(2026, 6, 12, 10, 0, 0),
+      DateTime(2026, 6, 12, 10, 0, 0, 120),
+      DateTime(2026, 6, 12, 10, 0, 0, 700),
+    ];
+
+    Firebench.instance.beginScreen('Home');
+    await Future<void>.delayed(Duration.zero);
+    frames.fireFirstFrame();
+    frames.fireFirstFrame();
+    Firebench.instance.finalizeActiveScreen();
+    await Future<void>.delayed(Duration.zero);
+
+    expect(reporter.traces.single.metrics['ttid_ms'], 120);
+  });
+
+  test('frames count once and never leak across the screen switch', () async {
+    await initWith(const FirebenchConfig(traceInDebug: true));
+    clockValues = [
+      DateTime(2026, 6, 12, 10, 0, 0),
+      DateTime(2026, 6, 12, 10, 0, 1),
+    ];
+
+    Firebench.instance.beginScreen('A');
+    await Future<void>.delayed(Duration.zero);
+    frames.timings?.call([_timing(8)]);
+    Firebench.instance.finalizeActiveScreen();
+    Firebench.instance.beginScreen('B');
+    await Future<void>.delayed(Duration.zero);
+    frames.timings?.call([_timing(800)]);
+    Firebench.instance.finalizeActiveScreen();
+    await Future<void>.delayed(Duration.zero);
+
+    final a = reporter.traces[0];
+    final b = reporter.traces[1];
+    expect(a.metrics['total_frames'], 1);
+    expect(a.metrics['frozen_frames'], 0);
+    expect(b.metrics['total_frames'], 1);
+    expect(b.metrics['frozen_frames'], 1);
   });
 }
 

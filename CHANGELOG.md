@@ -4,6 +4,23 @@ All notable changes to this project are documented here. The format is based on
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project
 adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 0.1.0-alpha.3 - 2026-06-13
+
+### Fixed
+
+- A time-to-full-display report that arrived after the user navigated to the
+  next screen could stamp that next screen's trace with the previous screen's
+  load time. Display reporting is now strictly bound to the screen it was
+  captured for: a late report on a screen the user already left is dropped,
+  never reattributed.
+
+### Removed
+
+- **Breaking:** the singleton `Firebench.instance.reportFullyDisplayed()`. It
+  resolved the topmost screen at call time, which misattributed late reports.
+  Capture a `FirebenchDisplay` via `Firebench.instance.currentDisplay()` at
+  screen init (or use `FirebenchDisplayWidget`) and report on that handle.
+
 ## 0.1.0-alpha.2 - 2026-06-13
 
 ### Fixed

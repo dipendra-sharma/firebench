@@ -15,7 +15,7 @@ One Firebase `Trace` named `screen_<RouteName>` with:
 | Metric (int) | Meaning |
 |---|---|
 | `ttid_ms` | Time to initial display — push to first frame (automatic) |
-| `ttfd_ms` | Time to full display — push to `reportFullyDisplayed()` (opt-in) |
+| `ttfd_ms` | Time to full display — push to a fully-displayed signal via `currentDisplay()` / `FirebenchDisplayWidget` (opt-in, manual) |
 | `slow_frames` | Frames slower than `slowFrameThreshold` but faster than `frozenFrameThreshold` (default: auto from display refresh rate, 16ms fallback). Frozen frames are counted separately, not here. |
 | `frozen_frames` | Frames slower than `frozenFrameThreshold` (default 700ms) |
 | `total_frames` | Frames rendered while the screen was active |
@@ -47,7 +47,10 @@ GoRouter(observers: [FirebenchNavigatorObserver()]);
 
 ## Time to full display (opt-in)
 
-For screens that load async content, report when fully rendered:
+For screens that load async content, report when fully rendered. Capture the
+display handle at screen init (it binds to *that* screen) and report on the
+captured handle — never resolve it inside the async callback, or a report that
+arrives after the user navigated away would land on the wrong screen:
 
 ```dart
 // Capture in initState before the async work, report after:
@@ -55,6 +58,9 @@ final display = Firebench.instance.currentDisplay();
 await repo.load();
 display?.reportFullyDisplayed();
 ```
+
+Reporting on a screen the user already left is dropped, never reattributed. The
+report is also idempotent — calling it twice records a single TTFD.
 
 Or wrap the screen and let stateless children auto-report:
 

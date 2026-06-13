@@ -1,6 +1,6 @@
 name: firebench
 description: Sentry-style automatic per-screen performance tracing for Flutter, reported to the free Firebase Performance backend.
-version: 0.1.0-alpha.2
+version: 0.1.0-alpha.3
 repository: https://github.com/dipendra-sharma/firebench
 issue_tracker: https://github.com/dipendra-sharma/firebench/issues
 topics:

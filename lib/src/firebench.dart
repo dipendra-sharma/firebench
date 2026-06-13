@@ -145,13 +145,9 @@ class Firebench {
     finalizeScreen(top);
   }
 
-  /// Marks the topmost active screen as fully displayed, recording TTFD.
-  void reportFullyDisplayed() {
-    if (_activeScreens.isEmpty) return;
-    _activeScreens.last.reportFullyDisplayed();
-  }
-
   /// A handle to the topmost active screen's display reporting, or `null`.
+  /// Capture this at screen init so the report binds to that screen even if
+  /// the user navigates away before its data arrives.
   FirebenchDisplay? currentDisplay() {
     if (_activeScreens.isEmpty) return null;
     return FirebenchDisplay(_activeScreens.last);
