@@ -1,0 +1,9 @@
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+pubspec.lock
+firebase-debug.log
+.firebase/
+.DS_Store
+.claude/

@@ -1,0 +1,22 @@
+# Dart/Flutter
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+pubspec.lock
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Firebase tooling
+firebase-debug.log
+.firebase/
+
+# OS
+.DS_Store
+
+# Tooling
+.claude/
